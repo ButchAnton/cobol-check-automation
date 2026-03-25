@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # mainframe_operations.sh
-#
+
 # Set up environment
 export PATH=$PATH:/usr/lpp/java/J8.0_64/bin
 export JAVA_HOME=/usr/lpp/java/J8.0_64
@@ -9,11 +9,10 @@ export PATH=$PATH:/usr/lpp/zowe/cli/node/bin
 
 # Check Java availability
 java -version
-#
+
 # Set ZOWE_USERNAME
-# We don't have to define this -- we are already passing
-# it in via the env: section of the workflow.
-# ZOWE_USERNAME="Z99998" # Replace with the actual username
+# Shouldn't be needed -- should come in from the execution environment/workflow
+# ZOWE_USERNAME="Z45864"  # Replace with the actual username or dataset prefix
 
 # Change to the cobolcheck directory
 cd cobolcheck
@@ -31,41 +30,44 @@ echo "Made linux_gnucobol_run_tests executable"
 cd ..
 
 # Function to run cobolcheck and copy files
-
 run_cobolcheck() {
-	program=$1
-	echo "Running cobolcheck for $program"
-	
-	# Run cobolcheck, but don't exit if it fails
-	./cobolcheck -p $program
-	echo "Cobolcheck execution completed for $program (exceptions may have occurred)"
-
-	# Check if CC##99.CBL was created, regardless of cobolcheck exit status
-	if [ -f "CC##99.CBL" ]; then
-	# Copy to the MVS dataset
-		if cp CC##99.CBL "//'${ZOWE_USERNAME}.CBL($program)'"; then
-			echo "Copied CC##99.CBL to ${ZOWE_USERNAME}.CBL($program)"
-		else
-			echo "Failed to copy CC##99.CBL to ${ZOWE_USERNAME}.CBL($program)"
-		fi
-	else
-		echo "CC##99.CBL not found for $program"
-	fi
-
-	# Copy the JCL file if it exists
-	if [ -f "${program}.JCL" ]; then
-		if cp ${program}.JCL "//'${ZOWE_USERNAME}.JCL($program)'"; then
-			echo "Copied ${program}.JCL to ${ZOWE_USERNAME}.JCL($program)"
-		else
-			echo "Failed to copy ${program}.JCL to ${ZOWE_USERNAME}.JCL($program)"
-		fi
-	else
-		echo "${program}.JCL not found"
-	fi
+  program=$1
+  echo "Running cobolcheck for $program"
+  
+  # Run cobolcheck, but don't exit if it fails
+  ./cobolcheck -p $program
+  echo "Cobolcheck execution completed for $program (exceptions may have occurred)"
+  
+  # Check if CC##99.CBL was created, regardless of cobolcheck exit status
+  if [ -f "CC##99.CBL" ]; then
+    # Copy to the MVS dataset
+    if cp CC##99.CBL "//'${ZOWE_USERNAME}.CBL($program)'"; then
+      echo "Copied CC##99.CBL to ${ZOWE_USERNAME}.CBL($program)"
+    else
+      echo "Failed to copy CC##99.CBL to ${ZOWE_USERNAME}.CBL($program)"
+    fi
+  else
+    echo "CC##99.CBL not found for $program"
+  fi
+  
+  # Copy the JCL file if it exists
+  if [ -f "${program}.JCL" ]; then
+    if cp ${program}.JCL "//'${ZOWE_USERNAME}.JCL($program)'"; then
+      echo "Copied ${program}.JCL to ${ZOWE_USERNAME}.JCL($program)"
+      # Submit job to run COBOL Check tests on the program!
+      submit ${program}.JCL
+      echo "Submitted job ${program}.JCL"
+    else
+      echo "Failed to copy ${program}.JCL to ${ZOWE_USERNAME}.JCL($program)"
+    fi
+  else
+    echo "${program}.JCL not found"
+  fi
 }
 
 # Run for each program
-for program in NUMBERS EMPPAY DEPTPAY; do
-	run_cobolcheck $program
+for program in ALPHA NUMBERS EMPPAY DEPTPAY; do
+  run_cobolcheck $program
 done
 
+echo "Mainframe operations completed"
